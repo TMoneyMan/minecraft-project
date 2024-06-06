@@ -1,0 +1,51 @@
+---
+- name: Setup Minecraft Server
+  hosts: minecraft
+  become: yes
+
+  tasks:
+    - name: Update all packages
+      yum:
+        name: "*"
+        state: latest
+
+    - name: Install Java OpenJDK 21
+      yum:
+        name: java-21-openjdk
+        state: present
+
+    - name: Download Minecraft server
+      get_url:
+        url: https://launcher.mojang.com/v1/objects/1.20.6.jar
+        dest: /home/ec2-user/minecraft_server.jar
+
+    - name: Accept EULA
+      copy:
+        content: "eula=true\n"
+        dest: /home/ec2-user/eula.txt
+
+    - name: Create systemd service file
+      copy:
+        content: |
+          [Unit]
+          Description=Minecraft Server
+          After=network.target
+
+          [Service]
+          User=ec2-user
+          WorkingDirectory=/home/ec2-user
+          ExecStart=/usr/bin/java -Xmx1024M -Xms1024M -jar minecraft_server.jar nogui
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/minecraft.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Start and enable Minecraft service
+      systemd:
+        name: minecraft
+        enabled: yes
+        state: started
