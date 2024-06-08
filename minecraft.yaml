@@ -9,14 +9,26 @@
         name: "*"
         state: latest
 
-    - name: Install Java OpenJDK 21
-      yum:
-        name: java-21-openjdk
-        state: present
+    - name: Download OpenJDK 22
+      get_url:
+        url: https://download.oracle.com/java/22/latest/jdk-22_linux-x64_bin.tar.gz
+        dest: /tmp/jdk-22_linux-x64_bin.tar.gz
+
+    - name: Extract OpenJDK 22
+      ansible.builtin.unarchive:
+        src: /tmp/jdk-22_linux-x64_bin.tar.gz
+        dest: /usr/local
+        remote_src: yes
+
+    - name: Update PATH environment variable
+      ansible.builtin.lineinfile:
+        path: /home/ec2-user/.bashrc
+        line: 'export PATH=$PATH:/usr/local/jdk-22.0.1/bin'
+        create: yes
 
     - name: Download Minecraft server
       get_url:
-        url: https://launcher.mojang.com/v1/objects/1.20.6.jar
+        url: https://piston-data.mojang.com/v1/objects/145ff0858209bcfc164859ba735d4199aafa1eea/server.jar
         dest: /home/ec2-user/minecraft_server.jar
 
     - name: Accept EULA
@@ -27,6 +39,7 @@
     - name: Create systemd service file
       copy:
         content: |
+
           [Unit]
           Description=Minecraft Server
           After=network.target
@@ -34,11 +47,12 @@
           [Service]
           User=ec2-user
           WorkingDirectory=/home/ec2-user
-          ExecStart=/usr/bin/java -Xmx1024M -Xms1024M -jar minecraft_server.jar nogui
-          Restart=on-failure
+          ExecStart=/usr/local/jdk-22.0.1/bin/java -Xmx1024M -Xms1024M -jar minecraft_server.jar nogui
+          Restart=always
 
           [Install]
           WantedBy=multi-user.target
+
         dest: /etc/systemd/system/minecraft.service
         owner: root
         group: root
